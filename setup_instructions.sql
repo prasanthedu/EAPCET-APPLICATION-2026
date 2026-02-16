@@ -1,44 +1,21 @@
 
 /* 
-  MPC STACK - EAPCET 2026 
-  DATABASE REPAIR & SCHEMA REFRESH SCRIPT
+  MPC STACK - DATABASE REPAIR SCRIPT
+  Run this in your Supabase SQL Editor (https://supabase.com/dashboard/project/_/sql)
 */
 
--- 1. Ensure columns exist (This fixes the 'column not found' error)
-DO $$ 
-BEGIN
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='applications' AND column_name='mobile_number') THEN
-        ALTER TABLE public.applications ADD COLUMN mobile_number TEXT DEFAULT 'N/A';
-    END IF;
-    
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='applications' AND column_name='alternate_mobile_number') THEN
-        ALTER TABLE public.applications ADD COLUMN alternate_mobile_number TEXT DEFAULT 'N/A';
-    END IF;
-END $$;
-
--- 2. Ensure all other mandatory columns are present (Full Schema Alignment)
+-- 1. Ensure all required columns exist
 ALTER TABLE public.applications 
-  ALTER COLUMN mobile_number SET NOT NULL,
-  ALTER COLUMN alternate_mobile_number SET NOT NULL;
+ADD COLUMN IF NOT EXISTS admin_message TEXT DEFAULT '',
+ADD COLUMN IF NOT EXISTS apaar TEXT DEFAULT 'N/A',
+ADD COLUMN IF NOT EXISTS alternate_mobile_number TEXT DEFAULT 'N/A',
+ADD COLUMN IF NOT EXISTS mobile_number TEXT DEFAULT 'N/A';
 
--- 3. Reset Permissions and RLS
-GRANT USAGE ON SCHEMA public TO anon;
-GRANT ALL ON TABLE public.applications TO anon;
+-- 2. Force reset permissions to ensure the "Save" (Update) operation is allowed
 ALTER TABLE public.applications ENABLE ROW LEVEL SECURITY;
 
-DO $$ 
-DECLARE
-  drop_cmd text;
-BEGIN
-  SELECT string_agg('DROP POLICY IF EXISTS ' || quote_ident(policyname) || ' ON public.applications;', ' ')
-  INTO drop_cmd
-  FROM pg_policies 
-  WHERE tablename = 'applications' AND schemaname = 'public';
-  IF drop_cmd IS NOT NULL THEN EXECUTE drop_cmd; END IF;
-END $$;
-
+DROP POLICY IF EXISTS "Public Access" ON public.applications;
 CREATE POLICY "Public Access" ON public.applications FOR ALL TO anon USING (true) WITH CHECK (true);
 
--- 4. Storage Bucket Repair
--- Ensure bucket 'student-documents' is PUBLIC in the Supabase UI
-CREATE POLICY "Universal Access" ON storage.objects FOR ALL TO anon USING (bucket_id = 'student-documents') WITH CHECK (bucket_id = 'student-documents');
+-- 3. Confirmation Comment
+COMMENT ON COLUMN public.applications.admin_message IS 'Stores status updates visible to students';

@@ -7,6 +7,7 @@ const AdminDashboard: React.FC = () => {
   const [apps, setApps] = useState<Application[]>([]);
   const [filteredApps, setFilteredApps] = useState<Application[]>([]);
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState('All');
   const [selectedApp, setSelectedApp] = useState<Application | null>(null);
@@ -70,32 +71,62 @@ const AdminDashboard: React.FC = () => {
 
   const handleUpdate = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!selectedApp) return;
+    if (!selectedApp || saving) return;
 
+    setSaving(true);
     const formData = new FormData(e.currentTarget);
-    const updatedData: Partial<Application> = {};
     
-    formData.forEach((value, key) => {
-      // @ts-ignore
-      updatedData[key] = value.toString();
+    // STRICT COLUMN WHITELIST: Only these fields will be sent to Supabase
+    // This prevents errors if your form has extra fields that don't exist in the DB
+    const allowedColumns = [
+      'student_name', 
+      'father_name', 
+      'mother_name', 
+      'dob', 
+      'aadhaar', 
+      'mobile_number', 
+      'alternate_mobile_number', 
+      'apaar', 
+      'ration_card', 
+      'category', 
+      'sub_caste', 
+      'application_status', 
+      'admin_message'
+    ];
+
+    const payload: any = {};
+    allowedColumns.forEach(col => {
+      const val = formData.get(col);
+      if (val !== null) {
+        payload[col] = val.toString();
+      }
     });
 
-    const { error } = await supabase
-      .from('applications')
-      .update(updatedData)
-      .eq('id', selectedApp.id);
+    try {
+      const { error } = await supabase
+        .from('applications')
+        .update(payload)
+        .eq('id', selectedApp.id);
 
-    if (error) {
-      alert('Update failed: ' + error.message);
-    } else {
-      setIsEditMode(false);
-      setSelectedApp(null);
-      fetchApplications();
+      if (error) {
+        throw error;
+      } else {
+        alert('Record updated successfully.');
+        setIsEditMode(false);
+        setSelectedApp(null);
+        await fetchApplications();
+      }
+    } catch (err: any) {
+      console.error('Update Error Details:', err);
+      const errorMsg = err.message || 'Unknown database error';
+      alert(`Update failed: ${errorMsg}\n\nIMPORTANT: Make sure you have run the latest SQL script in Supabase to add the "admin_message" column.`);
+    } finally {
+      setSaving(false);
     }
   };
 
   const handleDelete = async (id: string, name: string) => {
-    if (window.confirm(`Are you sure you want to permanently DELETE the application for ${name}? This action cannot be undone.`)) {
+    if (window.confirm(`Are you sure you want to permanently DELETE the application for ${name}?`)) {
       const { error } = await supabase
         .from('applications')
         .delete()
@@ -113,23 +144,6 @@ const AdminDashboard: React.FC = () => {
     setTimeout(() => setCopyFeedback(null), 2000);
   };
 
-  const downloadFile = async (url: string, filename: string) => {
-    try {
-      const response = await fetch(url);
-      const blob = await response.blob();
-      const blobUrl = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = blobUrl;
-      link.download = filename;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(blobUrl);
-    } catch (error) {
-      alert('Download failed. Please try right-clicking the image.');
-    }
-  };
-
   if (loading) return (
     <div className="flex flex-col justify-center items-center h-96 space-y-4">
       <div className="w-12 h-12 border-4 border-slate-200 border-t-blue-600 rounded-full animate-spin"></div>
@@ -139,14 +153,12 @@ const AdminDashboard: React.FC = () => {
 
   return (
     <div className="space-y-10 pb-20 animate-slide-up relative">
-      {/* Floating Copy Feedback */}
       {copyFeedback && (
         <div className="fixed top-24 left-1/2 -translate-x-1/2 z-[200] bg-blue-600 text-white px-6 py-3 rounded-2xl shadow-2xl font-black text-sm uppercase tracking-widest animate-slide-up">
           Copied: {copyFeedback}
         </div>
       )}
 
-      {/* Stats Section */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         <MetricCard label="Total Submissions" value={stats.total} icon="📄" color="slate" />
         <MetricCard label="Pending Review" value={stats.pending} icon="⏳" color="amber" />
@@ -154,7 +166,6 @@ const AdminDashboard: React.FC = () => {
         <MetricCard label="Declined" value={stats.rejected} icon="🚫" color="rose" />
       </div>
 
-      {/* Main Table Container */}
       <div className="bg-white rounded-[2rem] shadow-2xl border border-slate-100 overflow-hidden">
         <div className="p-8 border-b border-slate-100 flex flex-col md:flex-row justify-between items-center gap-6">
           <div className="relative w-full md:w-96">
@@ -230,21 +241,18 @@ const AdminDashboard: React.FC = () => {
                       <button 
                         onClick={() => { setSelectedApp(app); setIsEditMode(false); }}
                         className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-600 hover:text-white transition-all"
-                        title="Quick View & Copy"
                       >
                         👁️
                       </button>
                       <button 
                         onClick={() => { setSelectedApp(app); setIsEditMode(true); }}
                         className="p-2 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-900 hover:text-white transition-all"
-                        title="Edit Details"
                       >
                         ✏️
                       </button>
                       <button 
                         onClick={() => handleDelete(app.id, app.student_name)}
                         className="p-2 bg-rose-50 text-rose-600 rounded-lg hover:bg-rose-600 hover:text-white transition-all"
-                        title="Delete Record"
                       >
                         🗑️
                       </button>
@@ -254,53 +262,37 @@ const AdminDashboard: React.FC = () => {
               ))}
             </tbody>
           </table>
-          {filteredApps.length === 0 && (
-            <div className="p-20 text-center text-slate-400 font-bold">No applications found.</div>
-          )}
         </div>
       </div>
 
-      {/* Master View/Edit Modal */}
       {selectedApp && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md overflow-y-auto">
           <div className="bg-white w-full max-w-5xl rounded-[3rem] shadow-2xl overflow-hidden animate-slide-up my-8">
             <div className="royal-gradient p-8 text-white flex justify-between items-center">
               <div>
                 <h2 className="text-2xl font-black tracking-tight">{isEditMode ? 'Modify Application' : 'Candidate Dossier'}</h2>
-                <p className="text-blue-200 text-sm font-bold uppercase tracking-widest">{selectedApp.registration_number} • {selectedApp.student_name}</p>
+                <p className="text-blue-200 text-sm font-bold uppercase tracking-widest">{selectedApp.registration_number}</p>
               </div>
-              <div className="flex gap-4">
-                {!isEditMode && (
-                   <button 
-                    onClick={() => setIsEditMode(true)}
-                    className="px-6 py-2.5 rounded-xl bg-white/10 hover:bg-white text-white hover:text-slate-900 transition-all text-xs font-black uppercase"
-                  >
-                    Switch to Edit
-                  </button>
-                )}
-                <button 
-                  onClick={() => setSelectedApp(null)}
-                  className="w-12 h-12 flex items-center justify-center rounded-2xl bg-white/10 hover:bg-white/20 transition-all text-2xl"
-                >
-                  ✕
-                </button>
-              </div>
+              <button 
+                onClick={() => { if(!saving) setSelectedApp(null); }}
+                className="w-12 h-12 flex items-center justify-center rounded-2xl bg-white/10 hover:bg-white/20 transition-all text-2xl"
+              >
+                ✕
+              </button>
             </div>
 
             <div className="p-8 md:p-12 max-h-[75vh] overflow-y-auto scrollbar-hide">
               <form onSubmit={handleUpdate} className="space-y-12">
-                
-                {/* Status Command Center */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                   <div className="bg-blue-50 p-8 rounded-[2.5rem] border border-blue-100">
-                    <label className="block text-[10px] font-black text-blue-600 uppercase tracking-widest mb-4">Application Processing Status</label>
+                    <label className="block text-[10px] font-black text-blue-600 uppercase tracking-widest mb-4">Processing Status</label>
                     {isEditMode ? (
-                      <div className="flex flex-col gap-4">
+                      <div className="space-y-4">
                         <input 
                           name="application_status"
+                          id="statusInput"
                           defaultValue={selectedApp.application_status}
-                          className="w-full px-6 py-4 bg-white border-2 border-blue-200 rounded-2xl text-lg font-black text-blue-900 outline-none focus:border-blue-500 transition-all"
-                          placeholder="Custom Status Text..."
+                          className="w-full px-6 py-4 bg-white border-2 border-blue-200 rounded-2xl text-lg font-black text-blue-900 outline-none"
                           required
                         />
                         <div className="flex gap-2">
@@ -308,9 +300,9 @@ const AdminDashboard: React.FC = () => {
                             <button 
                               key={preset}
                               type="button"
-                              onClick={(e) => {
-                                const input = (e.currentTarget.parentElement?.previousElementSibling as HTMLInputElement);
-                                input.value = preset;
+                              onClick={() => {
+                                const input = document.getElementById('statusInput') as HTMLInputElement;
+                                if(input) input.value = preset;
                               }}
                               className="px-4 py-3 bg-white border border-blue-100 rounded-xl text-[10px] font-black text-blue-600 uppercase hover:bg-blue-600 hover:text-white transition-all flex-grow"
                             >
@@ -320,189 +312,63 @@ const AdminDashboard: React.FC = () => {
                         </div>
                       </div>
                     ) : (
-                      <div className="flex items-center gap-4">
-                        <div className="px-8 py-4 bg-white rounded-2xl border-2 border-blue-200 text-2xl font-black text-blue-900 uppercase">
-                          {selectedApp.application_status}
-                        </div>
-                        <button 
-                          type="button"
-                          onClick={() => copyToClipboard(selectedApp.application_status, 'Status')}
-                          className="p-4 bg-white text-blue-400 rounded-2xl hover:text-blue-600 transition-all border border-blue-100 flex items-center gap-2 font-black uppercase tracking-widest text-[10px]"
-                        >
-                          📋 Copy Status
-                        </button>
+                      <div className="px-8 py-4 bg-white rounded-2xl border-2 border-blue-200 text-2xl font-black text-blue-900 uppercase">
+                        {selectedApp.application_status}
                       </div>
                     )}
                   </div>
 
-                  {/* ADMIN UPDATES/MESSAGES SECTION */}
                   <div className="bg-slate-900 p-8 rounded-[2.5rem] text-white">
-                    <label className="block text-[10px] font-black text-blue-400 uppercase tracking-widest mb-4">Board Updates (Student View)</label>
+                    <label className="block text-[10px] font-black text-blue-400 uppercase tracking-widest mb-4">Board Updates</label>
                     {isEditMode ? (
                       <textarea 
                         name="admin_message"
                         defaultValue={selectedApp.admin_message}
-                        className="w-full px-6 py-4 bg-slate-800 border border-slate-700 rounded-2xl text-sm font-medium text-white outline-none focus:border-blue-500 transition-all min-h-[120px] resize-none"
-                        placeholder="Type updates or special instructions here. This will be visible when the student checks their status."
+                        className="w-full px-6 py-4 bg-slate-800 border border-slate-700 rounded-2xl text-sm text-white outline-none focus:border-blue-500 min-h-[120px]"
+                        placeholder="Updates visible to student..."
                       />
                     ) : (
-                      <div className="space-y-4">
-                        <div className="p-4 bg-slate-800 rounded-2xl text-xs font-medium text-slate-300 min-h-[100px] border border-slate-700">
-                          {selectedApp.admin_message || 'No custom message set. Default status messages will apply.'}
-                        </div>
-                        <button 
-                          type="button" 
-                          onClick={() => copyToClipboard(selectedApp.admin_message, 'Admin Message')}
-                          className="w-full py-3 bg-slate-800 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-700 transition-all flex items-center justify-center gap-2"
-                        >
-                          📋 Copy Update Text
-                        </button>
+                      <div className="p-4 bg-slate-800 rounded-2xl text-xs font-medium text-slate-300 min-h-[100px] border border-slate-700">
+                        {selectedApp.admin_message || 'No custom message set.'}
                       </div>
                     )}
                   </div>
                 </div>
 
-                {/* Identity & Contact Grid */}
-                <div>
-                  <h3 className="text-sm font-black text-slate-400 uppercase tracking-[0.2em] mb-6 flex items-center gap-3">
-                    <span className="w-6 h-6 rounded bg-slate-100 flex items-center justify-center text-[10px] text-slate-500">01</span>
-                    Personal & Social Profile
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    <DataField label="Full Name" name="student_name" val={selectedApp.student_name} isEdit={isEditMode} onCopy={copyToClipboard} />
-                    <DataField label="Father's Name" name="father_name" val={selectedApp.father_name} isEdit={isEditMode} onCopy={copyToClipboard} />
-                    <DataField label="Mother's Name" name="mother_name" val={selectedApp.mother_name} isEdit={isEditMode} onCopy={copyToClipboard} />
-                    <DataField label="Date of Birth" name="dob" val={selectedApp.dob} type="date" isEdit={isEditMode} onCopy={copyToClipboard} />
-                    <DataField label="Aadhaar Number" name="aadhaar" val={selectedApp.aadhaar} isEdit={isEditMode} onCopy={copyToClipboard} />
-                    <DataField label="APAAR ID" name="apaar" val={selectedApp.apaar} isEdit={isEditMode} onCopy={copyToClipboard} />
-                    <DataField label="Primary Mobile" name="mobile_number" val={selectedApp.mobile_number} isEdit={isEditMode} onCopy={copyToClipboard} />
-                    <DataField label="Alternate Phone" name="alternate_mobile_number" val={selectedApp.alternate_mobile_number} isEdit={isEditMode} onCopy={copyToClipboard} />
-                    <DataField label="Ration Card #" name="ration_card" val={selectedApp.ration_card} isEdit={isEditMode} onCopy={copyToClipboard} />
-                    <DataField label="Category" name="category" val={selectedApp.category} isEdit={isEditMode} onCopy={copyToClipboard} />
-                    <DataField label="Sub-Caste" name="sub_caste" val={selectedApp.sub_caste} isEdit={isEditMode} onCopy={copyToClipboard} />
-                    <DataField label="Income Certificate" name="income_certificate" val={selectedApp.income_certificate} isEdit={isEditMode} onCopy={copyToClipboard} />
-                    <DataField label="Caste/EWS Certificate" name="caste_ews_certificate" val={selectedApp.caste_ews_certificate} isEdit={isEditMode} onCopy={copyToClipboard} />
-                  </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  <DataField label="Full Name" name="student_name" val={selectedApp.student_name} isEdit={isEditMode} onCopy={copyToClipboard} />
+                  <DataField label="Father's Name" name="father_name" val={selectedApp.father_name} isEdit={isEditMode} onCopy={copyToClipboard} />
+                  <DataField label="Mother's Name" name="mother_name" val={selectedApp.mother_name} isEdit={isEditMode} onCopy={copyToClipboard} />
+                  <DataField label="DOB" name="dob" val={selectedApp.dob} type="date" isEdit={isEditMode} onCopy={copyToClipboard} />
+                  <DataField label="Aadhaar" name="aadhaar" val={selectedApp.aadhaar} isEdit={isEditMode} onCopy={copyToClipboard} />
+                  <DataField label="APAAR ID" name="apaar" val={selectedApp.apaar} isEdit={isEditMode} onCopy={copyToClipboard} />
+                  <DataField label="Mobile" name="mobile_number" val={selectedApp.mobile_number} isEdit={isEditMode} onCopy={copyToClipboard} />
+                  <DataField label="Alternate Mobile" name="alternate_mobile_number" val={selectedApp.alternate_mobile_number} isEdit={isEditMode} onCopy={copyToClipboard} />
+                  <DataField label="Ration Card" name="ration_card" val={selectedApp.ration_card} isEdit={isEditMode} onCopy={copyToClipboard} />
+                  <DataField label="Category" name="category" val={selectedApp.category} isEdit={isEditMode} onCopy={copyToClipboard} />
+                  <DataField label="Sub-Caste" name="sub_caste" val={selectedApp.sub_caste} isEdit={isEditMode} onCopy={copyToClipboard} />
                 </div>
 
-                {/* Education Timeline */}
-                <div className="border-t border-slate-50 pt-10">
-                  <h3 className="text-sm font-black text-slate-400 uppercase tracking-[0.2em] mb-6 flex items-center gap-3">
-                    <span className="w-6 h-6 rounded bg-slate-100 flex items-center justify-center text-[10px] text-slate-500">02</span>
-                    Academic History
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
-                    <div className="space-y-4">
-                       <DataField label="10th Hall Ticket" name="tenth_hall_ticket" val={selectedApp.tenth_hall_ticket} isEdit={isEditMode} onCopy={copyToClipboard} />
-                       <DataField label="Practical Hall Ticket" name="practical_hall_ticket" val={selectedApp.practical_hall_ticket} isEdit={isEditMode} onCopy={copyToClipboard} />
-                    </div>
-                    <div className="bg-slate-50 p-6 rounded-3xl space-y-4">
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1 mb-2">School Records (Copy Individual Values)</p>
-                      {[6, 7, 8, 9, 10].map(grade => (
-                        <div key={grade} className="flex gap-2">
-                          <div className="flex-grow">
-                            <label className="text-[9px] font-black text-slate-400 uppercase tracking-tighter block mb-1">{grade}th School Name</label>
-                            {isEditMode ? (
-                              <input 
-                                name={`school_${grade}_name`} 
-                                defaultValue={selectedApp[`school_${grade}_name` as keyof Application]}
-                                className="w-full px-4 py-2 bg-white border border-slate-200 rounded-xl font-bold text-sm"
-                              />
-                            ) : (
-                              <div className="flex justify-between items-center bg-white p-2.5 rounded-xl border border-slate-100 group/item">
-                                <span className="text-xs font-bold text-slate-800 truncate">{selectedApp[`school_${grade}_name` as keyof Application]}</span>
-                                <button type="button" onClick={() => copyToClipboard(selectedApp[`school_${grade}_name` as keyof Application], `${grade}th School`)} className="p-1.5 hover:bg-slate-50 rounded-lg text-slate-300 hover:text-blue-500 transition-all">📋</button>
-                              </div>
-                            )}
-                          </div>
-                          <div className="w-32">
-                            <label className="text-[9px] font-black text-slate-400 uppercase tracking-tighter block mb-1">Place</label>
-                            {isEditMode ? (
-                              <input 
-                                name={`school_${grade}_place`} 
-                                defaultValue={selectedApp[`school_${grade}_place` as keyof Application]}
-                                className="w-full px-4 py-2 bg-white border border-slate-200 rounded-xl font-bold text-sm"
-                              />
-                            ) : (
-                               <div className="flex justify-between items-center bg-white p-2.5 rounded-xl border border-slate-100 group/item">
-                                <span className="text-[10px] font-bold text-slate-500 truncate">{selectedApp[`school_${grade}_place` as keyof Application]}</span>
-                                <button type="button" onClick={() => copyToClipboard(selectedApp[`school_${grade}_place` as keyof Application], `${grade}th Place`)} className="p-1.5 hover:bg-slate-50 rounded-lg text-slate-300 hover:text-blue-500 transition-all">📋</button>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Digital Assets */}
-                <div className="border-t border-slate-50 pt-10">
-                  <h3 className="text-sm font-black text-slate-400 uppercase tracking-[0.2em] mb-6 flex items-center gap-3">
-                    <span className="w-6 h-6 rounded bg-slate-100 flex items-center justify-center text-[10px] text-slate-500">03</span>
-                    Verified Digital Assets
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    <div className="group/asset relative bg-slate-50 p-8 rounded-[2rem] border border-slate-100 flex flex-col items-center">
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-6">Original Photograph</p>
-                      <div className="w-40 h-52 bg-white rounded-2xl shadow-xl overflow-hidden mb-6 border-4 border-white group-hover/asset:scale-105 transition-transform duration-500">
-                        <img src={selectedApp.photo_url} className="w-full h-full object-cover" />
-                      </div>
-                      <div className="flex gap-4">
-                        <button 
-                          type="button" 
-                          onClick={() => downloadFile(selectedApp.photo_url, `${selectedApp.registration_number}_PHOTO.jpg`)}
-                          className="px-6 py-3 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-600 transition-all shadow-lg flex items-center gap-2"
-                        >
-                          ⬇️ Download Original
-                        </button>
-                        <button 
-                          type="button" 
-                          onClick={() => copyToClipboard(selectedApp.photo_url, 'Photo Link')}
-                          className="p-3 bg-white text-slate-400 rounded-xl hover:text-blue-600 border border-slate-100 shadow-sm"
-                        >
-                          📋 Link
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="group/asset relative bg-slate-50 p-8 rounded-[2rem] border border-slate-100 flex flex-col items-center">
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-6">Signature Specimen</p>
-                      <div className="w-full max-w-xs h-52 bg-white rounded-2xl shadow-xl overflow-hidden mb-6 border-4 border-white flex items-center justify-center p-6 group-hover/asset:scale-105 transition-transform duration-500">
-                        <img src={selectedApp.signature_url} className="max-w-full max-h-full object-contain" />
-                      </div>
-                      <div className="flex gap-4">
-                        <button 
-                          type="button" 
-                          onClick={() => downloadFile(selectedApp.signature_url, `${selectedApp.registration_number}_SIG.jpg`)}
-                          className="px-6 py-3 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-600 transition-all shadow-lg flex items-center gap-2"
-                        >
-                          ⬇️ Download Specimen
-                        </button>
-                        <button 
-                          type="button" 
-                          onClick={() => copyToClipboard(selectedApp.signature_url, 'Sig Link')}
-                          className="p-3 bg-white text-slate-400 rounded-xl hover:text-blue-600 border border-slate-100 shadow-sm"
-                        >
-                          📋 Link
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Footer Actions */}
                 <div className="border-t border-slate-100 pt-10 flex flex-col sm:flex-row justify-between items-center gap-6">
                   <div className="text-slate-400 text-[10px] font-black uppercase tracking-widest">
-                    Entry Created: {new Date(selectedApp.created_at).toLocaleString()}
+                    Created: {new Date(selectedApp.created_at).toLocaleString()}
                   </div>
-                  <div className="flex flex-wrap gap-4">
+                  <div className="flex gap-4">
                     {isEditMode ? (
                       <>
-                        <button type="submit" className="px-10 py-5 royal-gradient text-white rounded-2xl font-black text-sm uppercase tracking-widest shadow-xl hover:scale-105 transition-all">
-                          💾 Save Changes
+                        <button 
+                          type="submit" 
+                          disabled={saving}
+                          className="px-10 py-5 royal-gradient text-white rounded-2xl font-black text-sm uppercase tracking-widest shadow-xl hover:scale-105 transition-all disabled:opacity-50"
+                        >
+                          {saving ? 'Saving...' : '💾 Save Changes'}
                         </button>
-                        <button type="button" onClick={() => setIsEditMode(false)} className="px-10 py-5 bg-slate-100 text-slate-600 rounded-2xl font-black text-sm uppercase tracking-widest hover:bg-slate-200 transition-all">
+                        <button 
+                          type="button" 
+                          onClick={() => setIsEditMode(false)}
+                          disabled={saving}
+                          className="px-10 py-5 bg-slate-100 text-slate-600 rounded-2xl font-black text-sm uppercase tracking-widest hover:bg-slate-200 transition-all"
+                        >
                           Cancel
                         </button>
                       </>
@@ -510,29 +376,6 @@ const AdminDashboard: React.FC = () => {
                       <>
                         <button type="button" onClick={() => setIsEditMode(true)} className="px-10 py-5 bg-slate-900 text-white rounded-2xl font-black text-sm uppercase tracking-widest shadow-xl hover:bg-blue-600 transition-all">
                           ✏️ Edit Record
-                        </button>
-                        <button 
-                          type="button" 
-                          onClick={() => {
-                            const details = `
-Registration: ${selectedApp.registration_number}
-Name: ${selectedApp.student_name}
-Father: ${selectedApp.father_name}
-Mother: ${selectedApp.mother_name}
-Aadhaar: ${selectedApp.aadhaar}
-APAAR ID: ${selectedApp.apaar}
-Mobile: ${selectedApp.mobile_number}
-DOB: ${selectedApp.dob}
-Category: ${selectedApp.category}
-Sub-Caste: ${selectedApp.sub_caste}
-Status: ${selectedApp.application_status}
-Update: ${selectedApp.admin_message}
-                            `.trim();
-                            copyToClipboard(details, 'Full Profile');
-                          }}
-                          className="px-10 py-5 bg-blue-50 text-blue-700 rounded-2xl font-black text-sm uppercase tracking-widest border border-blue-100 hover:bg-blue-100 transition-all flex items-center gap-2"
-                        >
-                          📋 Copy Full Profile
                         </button>
                         <button type="button" onClick={() => handleDelete(selectedApp.id, selectedApp.student_name)} className="px-10 py-5 bg-rose-50 text-rose-600 rounded-2xl font-black text-sm uppercase tracking-widest border border-rose-100 hover:bg-rose-600 hover:text-white transition-all">
                           🗑️ Delete
@@ -551,26 +394,19 @@ Update: ${selectedApp.admin_message}
 };
 
 const DataField = ({ label, name, val, isEdit, type = "text", onCopy }: any) => (
-  <div className="space-y-1.5 group/field relative">
+  <div className="space-y-1.5">
     <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">{label}</label>
     {isEdit ? (
       <input 
         name={name}
         type={type}
         defaultValue={val}
-        className="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-slate-900 focus:border-blue-500 outline-none transition-all shadow-sm"
+        className="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-slate-900 focus:border-blue-500 outline-none transition-all"
       />
     ) : (
       <div className="flex items-center justify-between p-4 bg-slate-50/50 border border-slate-100 rounded-2xl hover:border-blue-200 hover:bg-white transition-all group">
         <span className="font-bold text-slate-900 truncate pr-4">{val || 'N/A'}</span>
-        <button 
-          type="button" 
-          onClick={() => onCopy(val, label)}
-          className="shrink-0 p-2 bg-white text-slate-400 rounded-xl hover:text-blue-600 border border-slate-100 shadow-sm transition-all"
-          title={`Copy ${label}`}
-        >
-          📋
-        </button>
+        <button type="button" onClick={() => onCopy(val, label)} className="shrink-0 p-2 bg-white text-slate-400 rounded-xl hover:text-blue-600 border border-slate-100 shadow-sm">📋</button>
       </div>
     )}
   </div>
@@ -584,7 +420,7 @@ const MetricCard = ({ label, value, icon, color }: any) => {
     rose: 'bg-white text-rose-600 border border-rose-100'
   };
   return (
-    <div className={`p-8 rounded-[2.5rem] shadow-xl ${themes[color] || themes.slate} flex flex-col justify-between hover:-translate-y-1 transition-transform duration-300`}>
+    <div className={`p-8 rounded-[2.5rem] shadow-xl ${themes[color] || themes.slate} flex flex-col justify-between`}>
       <div className="flex justify-between items-start mb-4">
         <span className="text-3xl">{icon}</span>
         <span className="text-[10px] font-black uppercase tracking-[0.2em] opacity-60">{label}</span>
