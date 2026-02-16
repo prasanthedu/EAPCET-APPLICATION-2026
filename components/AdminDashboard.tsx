@@ -76,8 +76,7 @@ const AdminDashboard: React.FC = () => {
     setSaving(true);
     const formData = new FormData(e.currentTarget);
     
-    // STRICT COLUMN WHITELIST: Only these fields will be sent to Supabase
-    // This prevents errors if your form has extra fields that don't exist in the DB
+    // Explicit whitelist of columns to avoid sending invalid fields
     const allowedColumns = [
       'student_name', 
       'father_name', 
@@ -108,25 +107,22 @@ const AdminDashboard: React.FC = () => {
         .update(payload)
         .eq('id', selectedApp.id);
 
-      if (error) {
-        throw error;
-      } else {
-        alert('Record updated successfully.');
-        setIsEditMode(false);
-        setSelectedApp(null);
-        await fetchApplications();
-      }
+      if (error) throw error;
+
+      alert('Successfully updated application.');
+      setIsEditMode(false);
+      setSelectedApp(null);
+      await fetchApplications();
     } catch (err: any) {
-      console.error('Update Error Details:', err);
-      const errorMsg = err.message || 'Unknown database error';
-      alert(`Update failed: ${errorMsg}\n\nIMPORTANT: Make sure you have run the latest SQL script in Supabase to add the "admin_message" column.`);
+      console.error('Update Error:', err);
+      alert(`Error: ${err.message}. If the error says 'column admin_message does not exist', please run the SQL repair script in Supabase.`);
     } finally {
       setSaving(false);
     }
   };
 
   const handleDelete = async (id: string, name: string) => {
-    if (window.confirm(`Are you sure you want to permanently DELETE the application for ${name}?`)) {
+    if (window.confirm(`Delete application for ${name}? This action is permanent.`)) {
       const { error } = await supabase
         .from('applications')
         .delete()
@@ -210,7 +206,7 @@ const AdminDashboard: React.FC = () => {
                   <td className="px-8 py-6">
                     <div className="flex items-center gap-4">
                       <div className="w-12 h-12 rounded-2xl overflow-hidden ring-2 ring-slate-100 shrink-0">
-                        <img src={app.photo_url} className="w-full h-full object-cover" />
+                        <img src={app.photo_url} className="w-full h-full object-cover" crossOrigin="anonymous" />
                       </div>
                       <div>
                         <p className="font-bold text-slate-900 mb-0.5">{app.student_name}</p>

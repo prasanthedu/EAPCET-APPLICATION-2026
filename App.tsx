@@ -6,12 +6,14 @@ import ApplicationForm from './components/ApplicationForm';
 import StatusCheck from './components/StatusCheck';
 import AdminDashboard from './components/AdminDashboard';
 import SuccessView from './components/SuccessView';
+import ReceiptView from './components/ReceiptView';
 import { Application } from './types';
 
 const App: React.FC = () => {
-  const [view, setView] = useState<'portal' | 'admin' | 'success' | 'status'>('portal');
+  const [view, setView] = useState<'portal' | 'admin' | 'success' | 'status' | 'receipt'>('portal');
   const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(false);
   const [submittedData, setSubmittedData] = useState<Application | null>(null);
+  const [selectedReceipt, setSelectedReceipt] = useState<Application | null>(null);
 
   const handleAdminLogin = (password: string) => {
     if (password === '200807') {
@@ -25,6 +27,11 @@ const App: React.FC = () => {
   const handleApplicationSuccess = (data: Application) => {
     setSubmittedData(data);
     setView('success');
+  };
+
+  const openReceipt = (app: Application) => {
+    setSelectedReceipt(app);
+    setView('receipt');
   };
 
   return (
@@ -77,7 +84,7 @@ const App: React.FC = () => {
             >
               <span className="group-hover:-translate-x-1 transition-transform">←</span> Return to Portal
             </button>
-            <StatusCheck />
+            <StatusCheck onOpenReceipt={openReceipt} />
           </div>
         )}
 
@@ -85,6 +92,14 @@ const App: React.FC = () => {
           <SuccessView 
             application={submittedData} 
             onReset={() => setView('portal')}
+            onOpenReceipt={() => openReceipt(submittedData)}
+          />
+        )}
+
+        {view === 'receipt' && selectedReceipt && (
+          <ReceiptView 
+            application={selectedReceipt} 
+            onBack={() => setView('status')} 
           />
         )}
 
