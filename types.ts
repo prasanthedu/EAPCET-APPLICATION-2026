@@ -17,6 +17,13 @@ export interface Application {
   caste_ews_certificate: string;
   tenth_hall_ticket: string;
   practical_hall_ticket: string;
+  jee_mains_no: string; // New field
+  street: string;       // New field
+  village_city: string; // New field
+  district: string;     // New field
+  state: string;        // New field
+  pincode: string;      // New field
+  nation: string;       // New field
   school_6_name: string;
   school_6_place: string;
   school_7_name: string;
@@ -30,7 +37,7 @@ export interface Application {
   photo_url: string;
   signature_url: string;
   application_status: string;
-  admin_message: string; // New field for custom admin updates
+  admin_message: string;
   created_at: string;
 }
 

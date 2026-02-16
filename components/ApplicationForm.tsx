@@ -40,7 +40,6 @@ const ApplicationForm: React.FC<Props> = ({ onSuccess }) => {
     setLoading(true);
 
     try {
-      // Step 1: Pre-check for existing Aadhaar to give a better error message early
       const { data: existingAadhaar } = await supabase
         .from('applications')
         .select('registration_number')
@@ -79,6 +78,13 @@ const ApplicationForm: React.FC<Props> = ({ onSuccess }) => {
         caste_ews_certificate: formData.get('caste_ews_certificate'),
         tenth_hall_ticket: formData.get('tenth_hall_ticket'),
         practical_hall_ticket: formData.get('practical_hall_ticket'),
+        jee_mains_no: formData.get('jee_mains_no') || '',
+        street: (formData.get('street') as string).toUpperCase(),
+        village_city: (formData.get('village_city') as string).toUpperCase(),
+        district: (formData.get('district') as string).toUpperCase(),
+        state: (formData.get('state') as string).toUpperCase(),
+        pincode: formData.get('pincode'),
+        nation: (formData.get('nation') as string).toUpperCase(),
         school_6_name: (formData.get('school_6_name') as string).toUpperCase(),
         school_6_place: (formData.get('school_6_place') as string).toUpperCase(),
         school_7_name: (formData.get('school_7_name') as string).toUpperCase(),
@@ -100,12 +106,7 @@ const ApplicationForm: React.FC<Props> = ({ onSuccess }) => {
         .select('*')
         .single();
 
-      if (dbError) {
-        if (dbError.code === '23505') {
-          throw new Error('Aadhaar ID or Registration Number already exists in our records.');
-        }
-        throw new Error(`Database Error: ${dbError.message}`);
-      }
+      if (dbError) throw new Error(`Database Error: ${dbError.message}`);
 
       onSuccess(data);
     } catch (err: any) {
@@ -141,7 +142,7 @@ const ApplicationForm: React.FC<Props> = ({ onSuccess }) => {
         <div className="grid grid-cols-1 gap-8">
           
           <div className="bg-white rounded-[2.5rem] p-8 md:p-12 shadow-xl border border-slate-100">
-            <SectionHeader number="01" title="Candidate Identity" subtitle="All fields are mandatory." />
+            <SectionHeader number="01" title="Candidate Identity" subtitle="Basic identification details." />
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pt-10">
               <InputField label="Candidate Name" name="student_name" required />
               <InputField label="Father's Name" name="father_name" required />
@@ -149,7 +150,7 @@ const ApplicationForm: React.FC<Props> = ({ onSuccess }) => {
               <InputField label="Date of Birth" name="dob" type="date" required />
               <InputField label="Aadhaar ID" name="aadhaar" required pattern="[0-9]{12}" maxLength={12} placeholder="12 Digit Aadhaar" />
               <InputField label="Mobile Number" name="mobile_number" required pattern="[0-9]{10}" maxLength={10} placeholder="10 Digit Mobile" />
-              <InputField label="Alternate Mobile" name="alternate_mobile_number" required pattern="[0-9]{10}" maxLength={10} placeholder="Emergency Contact" />
+              <InputField label="Alternate Contact" name="alternate_mobile_number" required pattern="[0-9]{10}" maxLength={10} />
               <InputField label="APAAR ID" name="apaar" required placeholder="Digital ID" />
               <InputField label="Ration Card" name="ration_card" required placeholder="Ration Card Number" />
             </div>
@@ -171,17 +172,30 @@ const ApplicationForm: React.FC<Props> = ({ onSuccess }) => {
           </div>
 
           <div className="bg-white rounded-[2.5rem] p-8 md:p-12 shadow-xl border border-slate-100">
-            <SectionHeader number="03" title="Educational History" subtitle="Mandatory school records." />
+            <SectionHeader number="03" title="Residential Address" subtitle="Complete permanent address details." />
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pt-10">
+              <InputField label="Street / Landmark" name="street" required />
+              <InputField label="Village / City" name="village_city" required />
+              <InputField label="District" name="district" required />
+              <InputField label="State" name="state" required />
+              <InputField label="Pin Code" name="pincode" required maxLength={6} pattern="[0-9]{6}" />
+              <InputField label="Nation" name="nation" required defaultValue="INDIA" />
+            </div>
+          </div>
+
+          <div className="bg-white rounded-[2.5rem] p-8 md:p-12 shadow-xl border border-slate-100">
+            <SectionHeader number="04" title="Educational History" subtitle="School records and admit cards." />
             <div className="grid grid-cols-1 md:grid-cols-2 gap-12 pt-10">
               <div className="space-y-6">
-                <h4 className="text-sm font-black text-slate-900 border-l-4 border-blue-600 pl-4 uppercase tracking-tighter">Academic IDs</h4>
+                <h4 className="text-sm font-black text-slate-900 border-l-4 border-blue-600 pl-4 uppercase tracking-tighter">Academic Identifiers</h4>
                 <div className="space-y-4">
                   <InputField label="10th Hall Ticket" name="tenth_hall_ticket" required />
                   <InputField label="Practical Ticket" name="practical_hall_ticket" required />
+                  <InputField label="JEE Mains Admit Card #" name="jee_mains_no" placeholder="Optional (If attended)" />
                 </div>
               </div>
               <div className="space-y-4">
-                <h4 className="text-sm font-black text-slate-900 border-l-4 border-blue-600 pl-4 uppercase tracking-tighter">Previous Schools</h4>
+                <h4 className="text-sm font-black text-slate-900 border-l-4 border-blue-600 pl-4 uppercase tracking-tighter">School Records (6th-10th)</h4>
                 {[6, 7, 8, 9, 10].map(grade => (
                   <div key={grade} className="flex gap-2">
                     <input name={`school_${grade}_name`} required placeholder={`${grade}th School Name`} className="flex-1 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:border-blue-500 outline-none text-sm font-bold" />
@@ -193,7 +207,7 @@ const ApplicationForm: React.FC<Props> = ({ onSuccess }) => {
           </div>
 
           <div className="bg-white rounded-[2.5rem] p-8 md:p-12 shadow-xl border border-slate-100">
-            <SectionHeader number="04" title="Document Scans" subtitle="High quality images required." />
+            <SectionHeader number="05" title="Document Scans" subtitle="Verification uploads." />
             <div className="grid grid-cols-1 md:grid-cols-2 gap-12 pt-10">
               <UploadBox label="Portrait Photograph" preview={photoPreview} onChange={(e) => handleFileChange(e, 'photo')} type="photo" />
               <UploadBox label="Digital Signature" preview={sigPreview} onChange={(e) => handleFileChange(e, 'sig')} type="sig" />
