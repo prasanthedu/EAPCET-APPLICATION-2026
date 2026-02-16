@@ -1,0 +1,7 @@
+{
+  "name": "MPC Stack - EAPCET 2026 Application Portal",
+  "description": "A high-performance, professional student application portal for EAPCET 2026 with an integrated admin dashboard, real-time status tracking, and glassmorphism UI.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
