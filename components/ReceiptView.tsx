@@ -13,7 +13,6 @@ const ReceiptView: React.FC<Props> = ({ application, onBack }) => {
   const handleDownload = () => {
     if (!receiptRef.current) return;
     
-    // Using standard options for best compatibility. scale: 2 provides high quality.
     const options = {
       margin: 0,
       filename: `MPC_STACK_Receipt_${application.registration_number}.pdf`,
@@ -24,7 +23,7 @@ const ReceiptView: React.FC<Props> = ({ application, onBack }) => {
         allowTaint: false,
         letterRendering: true,
         logging: false,
-        windowWidth: 794, // Approx 210mm in pixels at 96dpi
+        windowWidth: 794,
       },
       jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
     };
@@ -32,7 +31,7 @@ const ReceiptView: React.FC<Props> = ({ application, onBack }) => {
     // @ts-ignore
     html2pdf().from(receiptRef.current).set(options).save().catch(err => {
       console.error("PDF Generation Error:", err);
-      alert("There was an issue generating your PDF. Please try using the 'Print' button and 'Save as PDF' from your browser.");
+      alert("There was an issue generating your PDF. Please try using the 'Print' button.");
     });
   };
 
@@ -42,7 +41,6 @@ const ReceiptView: React.FC<Props> = ({ application, onBack }) => {
 
   return (
     <div className="max-w-5xl mx-auto space-y-4 pb-12 print:p-0 print:m-0">
-      {/* Controls - Hidden during print */}
       <div className="flex flex-col sm:flex-row justify-between items-center gap-4 bg-white p-3 rounded-2xl shadow-xl border border-slate-100 print:hidden">
         <button 
           onClick={onBack}
@@ -66,20 +64,17 @@ const ReceiptView: React.FC<Props> = ({ application, onBack }) => {
         </div>
       </div>
 
-      {/* Document Container */}
       <div className="bg-slate-200 p-2 sm:p-4 rounded-[1.5rem] shadow-inner flex justify-center overflow-x-auto print:bg-white print:p-0 print:rounded-none print:shadow-none">
         <div 
           ref={receiptRef}
           className="w-[210mm] bg-white p-6 relative print:shadow-none print:p-[8mm] print:m-0"
           style={{ minHeight: '297mm', boxSizing: 'border-box' }}
         >
-          {/* Background Watermark */}
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-[0.012] select-none rotate-45 text-[70px] font-black">
             MPC STACK 2026 OFFICIAL
           </div>
 
           <div className="relative z-10 flex flex-col h-full">
-            {/* Header Section */}
             <div className="text-center border-b-[1.5px] border-slate-900 pb-2 mb-3 flex flex-col items-center">
               <div className="w-8 h-8 royal-gradient rounded-lg flex items-center justify-center text-white font-black text-xs mb-1">M</div>
               <h1 className="text-xl font-black text-slate-900 uppercase tracking-tighter leading-none">MPC STACK - EAPCET 2026</h1>
@@ -89,7 +84,6 @@ const ReceiptView: React.FC<Props> = ({ application, onBack }) => {
               </div>
             </div>
 
-            {/* Top Grid: Registration & Photo */}
             <div className="flex flex-row gap-6 mb-3">
               <div className="flex-grow space-y-3">
                 <div className="bg-slate-50 border border-dashed border-blue-200 p-2 rounded-lg flex justify-between items-center">
@@ -110,14 +104,13 @@ const ReceiptView: React.FC<Props> = ({ application, onBack }) => {
                     <Row label="Father's Name" value={application.father_name} />
                     <Row label="Mother's Name" value={application.mother_name} />
                     <Row label="Aadhaar Number" value={application.aadhaar} />
-                    <Row label="APAAR Digital ID" value={application.apaar} />
                     <Row label="Mobile Number" value={application.mobile_number} />
-                    <Row label="Alternate Contact" value={application.alternate_mobile_number || 'N/A'} />
+                    <Row label="Email ID" value={application.email || 'N/A'} />
+                    <Row label="APAAR Digital ID" value={application.apaar} />
                   </div>
                 </Section>
               </div>
 
-              {/* Smaller Photograph - 20mm width approx */}
               <div className="w-24 shrink-0 space-y-1">
                 <div className="aspect-[3/4] bg-slate-50 border border-slate-200 rounded-md overflow-hidden shadow-sm flex items-center justify-center">
                   <img src={application.photo_url} className="w-full h-full object-cover" crossOrigin="anonymous" />
@@ -126,7 +119,6 @@ const ReceiptView: React.FC<Props> = ({ application, onBack }) => {
               </div>
             </div>
 
-            {/* Address Block - Fully detailed */}
             <div className="mb-3">
               <Section title="2. Complete Residential Address">
                 <div className="bg-slate-50/50 border border-slate-100 p-2 rounded-lg grid grid-cols-3 gap-x-6 gap-y-1">
@@ -140,7 +132,6 @@ const ReceiptView: React.FC<Props> = ({ application, onBack }) => {
               </Section>
             </div>
 
-            {/* Socio-Economic & Academic Credentials */}
             <div className="grid grid-cols-2 gap-6 mb-3">
               <Section title="3. Socio-Economic Status">
                 <div className="grid grid-cols-1 gap-1">
@@ -161,7 +152,6 @@ const ReceiptView: React.FC<Props> = ({ application, onBack }) => {
               </Section>
             </div>
 
-            {/* Institutional History */}
             <Section title="5. Institutional History (Class 6 - 10)">
               <div className="bg-slate-50 rounded-lg overflow-hidden border border-slate-100">
                 <table className="w-full text-left border-collapse">
@@ -183,7 +173,6 @@ const ReceiptView: React.FC<Props> = ({ application, onBack }) => {
               </div>
             </Section>
 
-            {/* Footer Section: Quote & Signature */}
             <div className="mt-auto pt-4 border-t border-slate-100">
                <div className="text-center mb-3">
                  <p className="text-sm font-serif italic text-slate-600">"The beautiful thing about learning is that no one can take it away from you."</p>

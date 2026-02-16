@@ -9,6 +9,7 @@ export interface Application {
   aadhaar: string;
   mobile_number: string;
   alternate_mobile_number: string;
+  email: string; // New field
   apaar: string;
   ration_card: string;
   category: string;
@@ -17,13 +18,13 @@ export interface Application {
   caste_ews_certificate: string;
   tenth_hall_ticket: string;
   practical_hall_ticket: string;
-  jee_mains_no: string; // New field
-  street: string;       // New field
-  village_city: string; // New field
-  district: string;     // New field
-  state: string;        // New field
-  pincode: string;      // New field
-  nation: string;       // New field
+  jee_mains_no: string;
+  street: string;
+  village_city: string;
+  district: string;
+  state: string;
+  pincode: string;
+  nation: string;
   school_6_name: string;
   school_6_place: string;
   school_7_name: string;

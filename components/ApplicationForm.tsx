@@ -26,6 +26,7 @@ const ApplicationForm: React.FC<Props> = ({ onSuccess }) => {
     const formData = new FormData(e.currentTarget);
     const aadhaar = formData.get('aadhaar') as string;
     const mobile = formData.get('mobile_number') as string;
+    const email = formData.get('email') as string;
     
     if (aadhaar.length !== 12) {
       alert('Aadhaar must be exactly 12 digits.');
@@ -59,7 +60,7 @@ const ApplicationForm: React.FC<Props> = ({ onSuccess }) => {
       setStatusMessage('✍️ Uploading signature...');
       const sigUrl = await uploadFile('student-documents', `uploads/${regNo}_sig_${timestamp}.jpg`, sigFile);
 
-      setStatusMessage('💾 Finalizing submission...');
+      setStatusMessage('💾 Saving application...');
       
       const applicationData = {
         registration_number: regNo,
@@ -70,6 +71,7 @@ const ApplicationForm: React.FC<Props> = ({ onSuccess }) => {
         aadhaar: aadhaar,
         mobile_number: mobile,
         alternate_mobile_number: formData.get('alternate_mobile_number'),
+        email: email.toLowerCase(),
         apaar: formData.get('apaar'),
         ration_card: formData.get('ration_card'),
         category: formData.get('category'),
@@ -107,6 +109,10 @@ const ApplicationForm: React.FC<Props> = ({ onSuccess }) => {
         .single();
 
       if (dbError) throw new Error(`Database Error: ${dbError.message}`);
+
+      // Simulated Email Dispatch
+      setStatusMessage('📧 Sending confirmation to ' + email + '...');
+      await new Promise(resolve => setTimeout(resolve, 1500)); 
 
       onSuccess(data);
     } catch (err: any) {
@@ -151,6 +157,7 @@ const ApplicationForm: React.FC<Props> = ({ onSuccess }) => {
               <InputField label="Aadhaar ID" name="aadhaar" required pattern="[0-9]{12}" maxLength={12} placeholder="12 Digit Aadhaar" />
               <InputField label="Mobile Number" name="mobile_number" required pattern="[0-9]{10}" maxLength={10} placeholder="10 Digit Mobile" />
               <InputField label="Alternate Contact" name="alternate_mobile_number" required pattern="[0-9]{10}" maxLength={10} />
+              <InputField label="Email ID" name="email" type="email" required placeholder="example@gmail.com" />
               <InputField label="APAAR ID" name="apaar" required placeholder="Digital ID" />
               <InputField label="Ration Card" name="ration_card" required placeholder="Ration Card Number" />
             </div>

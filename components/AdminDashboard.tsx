@@ -60,7 +60,8 @@ const AdminDashboard: React.FC = () => {
         a.student_name.toLowerCase().includes(search.toLowerCase()) || 
         a.registration_number.toLowerCase().includes(search.toLowerCase()) ||
         a.aadhaar.includes(search) ||
-        a.mobile_number.includes(search)
+        a.mobile_number.includes(search) ||
+        (a.email && a.email.toLowerCase().includes(search.toLowerCase()))
       );
     }
     if (filterStatus !== 'All') {
@@ -76,7 +77,6 @@ const AdminDashboard: React.FC = () => {
     setSaving(true);
     const formData = new FormData(e.currentTarget);
     
-    // Explicit whitelist of columns to avoid sending invalid fields
     const allowedColumns = [
       'student_name', 
       'father_name', 
@@ -85,6 +85,7 @@ const AdminDashboard: React.FC = () => {
       'aadhaar', 
       'mobile_number', 
       'alternate_mobile_number', 
+      'email',
       'apaar', 
       'ration_card', 
       'category', 
@@ -115,14 +116,14 @@ const AdminDashboard: React.FC = () => {
       await fetchApplications();
     } catch (err: any) {
       console.error('Update Error:', err);
-      alert(`Error: ${err.message}. If the error says 'column admin_message does not exist', please run the SQL repair script in Supabase.`);
+      alert(`Error: ${err.message}`);
     } finally {
       setSaving(false);
     }
   };
 
   const handleDelete = async (id: string, name: string) => {
-    if (window.confirm(`Delete application for ${name}? This action is permanent.`)) {
+    if (window.confirm(`Delete application for ${name}?`)) {
       const { error } = await supabase
         .from('applications')
         .delete()
@@ -167,8 +168,8 @@ const AdminDashboard: React.FC = () => {
           <div className="relative w-full md:w-96">
             <input 
               type="text" 
-              placeholder="Search Candidate Details..."
-              className="w-full pl-12 pr-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all font-semibold"
+              placeholder="Search Candidate..."
+              className="w-full pl-12 pr-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none transition-all font-semibold"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
@@ -196,8 +197,8 @@ const AdminDashboard: React.FC = () => {
               <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-black uppercase tracking-[0.2em]">
                 <th className="px-8 py-4 text-left">Candidate Info</th>
                 <th className="px-8 py-4 text-left">Contact & ID</th>
-                <th className="px-8 py-4 text-left">Process Status</th>
-                <th className="px-8 py-4 text-right">Control Console</th>
+                <th className="px-8 py-4 text-left">Status</th>
+                <th className="px-8 py-4 text-right">Console</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
@@ -210,7 +211,7 @@ const AdminDashboard: React.FC = () => {
                       </div>
                       <div>
                         <p className="font-bold text-slate-900 mb-0.5">{app.student_name}</p>
-                        <p className="text-xs text-slate-400 font-semibold">{app.category} • Father: {app.father_name}</p>
+                        <p className="text-xs text-slate-400 font-semibold">{app.category}</p>
                       </div>
                     </div>
                   </td>
@@ -221,37 +222,23 @@ const AdminDashboard: React.FC = () => {
                         <button onClick={() => copyToClipboard(app.registration_number, 'Reg No')} className="text-slate-300 hover:text-blue-500 text-xs">📋</button>
                       </div>
                       <p className="text-xs text-slate-400 font-bold">📞 {app.mobile_number}</p>
+                      <p className="text-[10px] text-blue-500 font-medium truncate max-w-[150px]">{app.email}</p>
                     </div>
                   </td>
                   <td className="px-8 py-6">
                     <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest ${
-                      app.application_status === 'Approved' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' :
-                      app.application_status === 'Rejected' ? 'bg-rose-50 text-rose-700 border border-rose-100' :
-                      'bg-amber-50 text-amber-700 border border-amber-100'
+                      app.application_status === 'Approved' ? 'bg-emerald-50 text-emerald-700' :
+                      app.application_status === 'Rejected' ? 'bg-rose-50 text-rose-700' :
+                      'bg-amber-50 text-amber-700'
                     }`}>
                       {app.application_status}
                     </span>
                   </td>
                   <td className="px-8 py-6 text-right">
                     <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button 
-                        onClick={() => { setSelectedApp(app); setIsEditMode(false); }}
-                        className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-600 hover:text-white transition-all"
-                      >
-                        👁️
-                      </button>
-                      <button 
-                        onClick={() => { setSelectedApp(app); setIsEditMode(true); }}
-                        className="p-2 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-900 hover:text-white transition-all"
-                      >
-                        ✏️
-                      </button>
-                      <button 
-                        onClick={() => handleDelete(app.id, app.student_name)}
-                        className="p-2 bg-rose-50 text-rose-600 rounded-lg hover:bg-rose-600 hover:text-white transition-all"
-                      >
-                        🗑️
-                      </button>
+                      <button onClick={() => { setSelectedApp(app); setIsEditMode(false); }} className="p-2 bg-blue-50 text-blue-600 rounded-lg">👁️</button>
+                      <button onClick={() => { setSelectedApp(app); setIsEditMode(true); }} className="p-2 bg-slate-100 text-slate-600 rounded-lg">✏️</button>
+                      <button onClick={() => handleDelete(app.id, app.student_name)} className="p-2 bg-rose-50 text-rose-600 rounded-lg">🗑️</button>
                     </div>
                   </td>
                 </tr>
@@ -269,116 +256,41 @@ const AdminDashboard: React.FC = () => {
                 <h2 className="text-2xl font-black tracking-tight">{isEditMode ? 'Modify Application' : 'Candidate Dossier'}</h2>
                 <p className="text-blue-200 text-sm font-bold uppercase tracking-widest">{selectedApp.registration_number}</p>
               </div>
-              <button 
-                onClick={() => { if(!saving) setSelectedApp(null); }}
-                className="w-12 h-12 flex items-center justify-center rounded-2xl bg-white/10 hover:bg-white/20 transition-all text-2xl"
-              >
-                ✕
-              </button>
+              <button onClick={() => { if(!saving) setSelectedApp(null); }} className="text-white text-2xl">✕</button>
             </div>
 
             <div className="p-8 md:p-12 max-h-[75vh] overflow-y-auto scrollbar-hide">
               <form onSubmit={handleUpdate} className="space-y-12">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                  <div className="bg-blue-50 p-8 rounded-[2.5rem] border border-blue-100">
-                    <label className="block text-[10px] font-black text-blue-600 uppercase tracking-widest mb-4">Processing Status</label>
-                    {isEditMode ? (
-                      <div className="space-y-4">
-                        <input 
-                          name="application_status"
-                          id="statusInput"
-                          defaultValue={selectedApp.application_status}
-                          className="w-full px-6 py-4 bg-white border-2 border-blue-200 rounded-2xl text-lg font-black text-blue-900 outline-none"
-                          required
-                        />
-                        <div className="flex gap-2">
-                          {['Pending', 'Approved', 'Rejected'].map(preset => (
-                            <button 
-                              key={preset}
-                              type="button"
-                              onClick={() => {
-                                const input = document.getElementById('statusInput') as HTMLInputElement;
-                                if(input) input.value = preset;
-                              }}
-                              className="px-4 py-3 bg-white border border-blue-100 rounded-xl text-[10px] font-black text-blue-600 uppercase hover:bg-blue-600 hover:text-white transition-all flex-grow"
-                            >
-                              {preset}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="px-8 py-4 bg-white rounded-2xl border-2 border-blue-200 text-2xl font-black text-blue-900 uppercase">
-                        {selectedApp.application_status}
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="bg-slate-900 p-8 rounded-[2.5rem] text-white">
-                    <label className="block text-[10px] font-black text-blue-400 uppercase tracking-widest mb-4">Board Updates</label>
-                    {isEditMode ? (
-                      <textarea 
-                        name="admin_message"
-                        defaultValue={selectedApp.admin_message}
-                        className="w-full px-6 py-4 bg-slate-800 border border-slate-700 rounded-2xl text-sm text-white outline-none focus:border-blue-500 min-h-[120px]"
-                        placeholder="Updates visible to student..."
-                      />
-                    ) : (
-                      <div className="p-4 bg-slate-800 rounded-2xl text-xs font-medium text-slate-300 min-h-[100px] border border-slate-700">
-                        {selectedApp.admin_message || 'No custom message set.'}
-                      </div>
-                    )}
-                  </div>
-                </div>
-
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  <DataField label="Full Name" name="student_name" val={selectedApp.student_name} isEdit={isEditMode} onCopy={copyToClipboard} />
-                  <DataField label="Father's Name" name="father_name" val={selectedApp.father_name} isEdit={isEditMode} onCopy={copyToClipboard} />
-                  <DataField label="Mother's Name" name="mother_name" val={selectedApp.mother_name} isEdit={isEditMode} onCopy={copyToClipboard} />
-                  <DataField label="DOB" name="dob" val={selectedApp.dob} type="date" isEdit={isEditMode} onCopy={copyToClipboard} />
-                  <DataField label="Aadhaar" name="aadhaar" val={selectedApp.aadhaar} isEdit={isEditMode} onCopy={copyToClipboard} />
-                  <DataField label="APAAR ID" name="apaar" val={selectedApp.apaar} isEdit={isEditMode} onCopy={copyToClipboard} />
+                  <DataField label="Name" name="student_name" val={selectedApp.student_name} isEdit={isEditMode} onCopy={copyToClipboard} />
+                  <DataField label="Father" name="father_name" val={selectedApp.father_name} isEdit={isEditMode} onCopy={copyToClipboard} />
                   <DataField label="Mobile" name="mobile_number" val={selectedApp.mobile_number} isEdit={isEditMode} onCopy={copyToClipboard} />
-                  <DataField label="Alternate Mobile" name="alternate_mobile_number" val={selectedApp.alternate_mobile_number} isEdit={isEditMode} onCopy={copyToClipboard} />
-                  <DataField label="Ration Card" name="ration_card" val={selectedApp.ration_card} isEdit={isEditMode} onCopy={copyToClipboard} />
+                  <DataField label="Email ID" name="email" val={selectedApp.email} isEdit={isEditMode} onCopy={copyToClipboard} />
+                  <DataField label="Aadhaar" name="aadhaar" val={selectedApp.aadhaar} isEdit={isEditMode} onCopy={copyToClipboard} />
                   <DataField label="Category" name="category" val={selectedApp.category} isEdit={isEditMode} onCopy={copyToClipboard} />
-                  <DataField label="Sub-Caste" name="sub_caste" val={selectedApp.sub_caste} isEdit={isEditMode} onCopy={copyToClipboard} />
+                  <DataField label="Status" name="application_status" val={selectedApp.application_status} isEdit={isEditMode} onCopy={copyToClipboard} />
                 </div>
 
-                <div className="border-t border-slate-100 pt-10 flex flex-col sm:flex-row justify-between items-center gap-6">
-                  <div className="text-slate-400 text-[10px] font-black uppercase tracking-widest">
-                    Created: {new Date(selectedApp.created_at).toLocaleString()}
-                  </div>
-                  <div className="flex gap-4">
-                    {isEditMode ? (
-                      <>
-                        <button 
-                          type="submit" 
-                          disabled={saving}
-                          className="px-10 py-5 royal-gradient text-white rounded-2xl font-black text-sm uppercase tracking-widest shadow-xl hover:scale-105 transition-all disabled:opacity-50"
-                        >
-                          {saving ? 'Saving...' : '💾 Save Changes'}
-                        </button>
-                        <button 
-                          type="button" 
-                          onClick={() => setIsEditMode(false)}
-                          disabled={saving}
-                          className="px-10 py-5 bg-slate-100 text-slate-600 rounded-2xl font-black text-sm uppercase tracking-widest hover:bg-slate-200 transition-all"
-                        >
-                          Cancel
-                        </button>
-                      </>
-                    ) : (
-                      <>
-                        <button type="button" onClick={() => setIsEditMode(true)} className="px-10 py-5 bg-slate-900 text-white rounded-2xl font-black text-sm uppercase tracking-widest shadow-xl hover:bg-blue-600 transition-all">
-                          ✏️ Edit Record
-                        </button>
-                        <button type="button" onClick={() => handleDelete(selectedApp.id, selectedApp.student_name)} className="px-10 py-5 bg-rose-50 text-rose-600 rounded-2xl font-black text-sm uppercase tracking-widest border border-rose-100 hover:bg-rose-600 hover:text-white transition-all">
-                          🗑️ Delete
-                        </button>
-                      </>
-                    )}
-                  </div>
+                <div className="bg-slate-900 p-8 rounded-[2.5rem] text-white">
+                  <label className="block text-[10px] font-black text-blue-400 uppercase tracking-widest mb-4">Board Updates</label>
+                  {isEditMode ? (
+                    <textarea name="admin_message" defaultValue={selectedApp.admin_message} className="w-full px-6 py-4 bg-slate-800 border border-slate-700 rounded-2xl text-sm text-white outline-none" />
+                  ) : (
+                    <div className="p-4 bg-slate-800 rounded-2xl text-xs font-medium text-slate-300 min-h-[100px]">{selectedApp.admin_message || 'No messages.'}</div>
+                  )}
+                </div>
+
+                <div className="pt-10 flex justify-end gap-4">
+                  {isEditMode ? (
+                    <>
+                      <button type="submit" disabled={saving} className="px-10 py-5 royal-gradient text-white rounded-2xl font-black text-sm uppercase tracking-widest shadow-xl">
+                        {saving ? 'Saving...' : 'Save'}
+                      </button>
+                      <button type="button" onClick={() => setIsEditMode(false)} className="px-10 py-5 bg-slate-100 text-slate-600 rounded-2xl font-black text-sm uppercase tracking-widest">Cancel</button>
+                    </>
+                  ) : (
+                    <button type="button" onClick={() => setIsEditMode(true)} className="px-10 py-5 bg-slate-900 text-white rounded-2xl font-black text-sm uppercase tracking-widest">Edit</button>
+                  )}
                 </div>
               </form>
             </div>
@@ -393,16 +305,11 @@ const DataField = ({ label, name, val, isEdit, type = "text", onCopy }: any) => 
   <div className="space-y-1.5">
     <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">{label}</label>
     {isEdit ? (
-      <input 
-        name={name}
-        type={type}
-        defaultValue={val}
-        className="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-slate-900 focus:border-blue-500 outline-none transition-all"
-      />
+      <input name={name} type={type} defaultValue={val} className="w-full px-5 py-3 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-slate-900 outline-none" />
     ) : (
-      <div className="flex items-center justify-between p-4 bg-slate-50/50 border border-slate-100 rounded-2xl hover:border-blue-200 hover:bg-white transition-all group">
+      <div className="flex items-center justify-between p-4 bg-slate-50 border border-slate-100 rounded-2xl">
         <span className="font-bold text-slate-900 truncate pr-4">{val || 'N/A'}</span>
-        <button type="button" onClick={() => onCopy(val, label)} className="shrink-0 p-2 bg-white text-slate-400 rounded-xl hover:text-blue-600 border border-slate-100 shadow-sm">📋</button>
+        <button type="button" onClick={() => onCopy(val, label)} className="text-slate-300">📋</button>
       </div>
     )}
   </div>
